@@ -1,47 +1,91 @@
-//scraper.js
-import 'dotenv/config';
+// //scraper.js
+// import 'dotenv/config';
+// import axios from "axios";
+// import * as cheerio from "cheerio"; // for parsing HTML
+// import { createClient } from "@supabase/supabase-js";
+
+// console.log("🧪 ENV DEBUG:", {
+//   SUPABASE_URL: process.env.SUPABASE_URL,
+//   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+//   SCRAPINGBEE_KEY: process.env.SCRAPINGBEE_KEY,
+// });
+
+
+// if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+//   console.error("❌ Missing Supabase credentials");
+//   process.exit(1);
+// }
+// const supabase = createClient(
+//   process.env.SUPABASE_URL,
+//   process.env.SUPABASE_ANON_KEY
+// );
+
+
+// async function scrapeWithScrapingBee(url, selector, name) {
+//   try {
+//     const res = await axios.get("https://app.scrapingbee.com/api/v1", {
+//       params: {
+//         api_key: process.env.SCRAPINGBEE_KEY,
+//         url: url,
+//         render_js: "true", // ensures JS-heavy sites are rendered
+//       },
+//     });
+
+//     const $ = cheerio.load(res.data);
+//     const text = $(selector).first().text().replace(/,/g, "").trim();
+//     const rate = parseFloat(text.match(/\d+(\.\d+)?/)[0]);
+
+//     return { name, rate, source: url };
+//   } catch (err) {
+//     console.error(`❌ Failed to scrape ${name}`, err.message);
+//     return null;
+//   }
+// }
+
+// async function saveRate(vendor) {
+//   if (!vendor?.rate) return;
+//   await supabase.from("fx_vendors").upsert({
+//     name: vendor.name,
+//     rate: vendor.rate,
+//     source: vendor.source,
+//     updated_at: new Date().toISOString(),
+//   });
+//   console.log(`✅ Saved ${vendor.name}: ₦${vendor.rate}/$1`);
+// }
+
+// async function main() {
+//   const vendors = [
+//     await scrapeWithScrapingBee("https://abokifx.com", "table tr:contains('USD') td:nth-child(2)", "AbokiFX"),
+//     await scrapeWithScrapingBee("https://www.payoneer.com", ".exchange-rate-selector", "Payoneer"),
+//     await scrapeWithScrapingBee("https://www.skrill.com/en/fees/", ".fees-exchange-rate", "Skrill"),
+//     await scrapeWithScrapingBee("https://www.westernunion.com/ng/en/home.html", ".exchange-rate", "Western Union"),
+//     await scrapeWithScrapingBee("https://transfergo.com", ".exchange-rate", "TransferGo"),
+//     await scrapeWithScrapingBee("https://afriexapp.com", ".exchange-rate", "Afriex"),
+//     await scrapeWithScrapingBee("https://pay4me.services", ".exchange-rate", "Pay4Me"),
+//   ];
+
+//   for (const v of vendors) {
+//     if (v) await saveRate(v);
+//   }
+
+//   console.log("🎉 Scraping finished via ScrapingBee");
+// }
+
+// main().catch(console.error);
+
+
+
 import axios from "axios";
-import * as cheerio from "cheerio"; // for parsing HTML
+import * as cheerio from "cheerio";
 import { createClient } from "@supabase/supabase-js";
 
-console.log("🧪 ENV DEBUG:", {
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-  SCRAPINGBEE_KEY: process.env.SCRAPINGBEE_KEY,
-});
-
-
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-  console.error("❌ Missing Supabase credentials");
-  process.exit(1);
-}
+// 🔹 Supabase setup
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
 
-
-async function scrapeWithScrapingBee(url, selector, name) {
-  try {
-    const res = await axios.get("https://app.scrapingbee.com/api/v1", {
-      params: {
-        api_key: process.env.SCRAPINGBEE_KEY,
-        url: url,
-        render_js: "true", // ensures JS-heavy sites are rendered
-      },
-    });
-
-    const $ = cheerio.load(res.data);
-    const text = $(selector).first().text().replace(/,/g, "").trim();
-    const rate = parseFloat(text.match(/\d+(\.\d+)?/)[0]);
-
-    return { name, rate, source: url };
-  } catch (err) {
-    console.error(`❌ Failed to scrape ${name}`, err.message);
-    return null;
-  }
-}
-
+// 🔹 Save vendor rate to Supabase
 async function saveRate(vendor) {
   if (!vendor?.rate) return;
   await supabase.from("fx_vendors").upsert({
@@ -53,22 +97,83 @@ async function saveRate(vendor) {
   console.log(`✅ Saved ${vendor.name}: ₦${vendor.rate}/$1`);
 }
 
-async function main() {
-  const vendors = [
-    await scrapeWithScrapingBee("https://abokifx.com", "table tr:contains('USD') td:nth-child(2)", "AbokiFX"),
-    await scrapeWithScrapingBee("https://www.payoneer.com", ".exchange-rate-selector", "Payoneer"),
-    await scrapeWithScrapingBee("https://www.skrill.com/en/fees/", ".fees-exchange-rate", "Skrill"),
-    await scrapeWithScrapingBee("https://www.westernunion.com/ng/en/home.html", ".exchange-rate", "Western Union"),
-    await scrapeWithScrapingBee("https://transfergo.com", ".exchange-rate", "TransferGo"),
-    await scrapeWithScrapingBee("https://afriexapp.com", ".exchange-rate", "Afriex"),
-    await scrapeWithScrapingBee("https://pay4me.services", ".exchange-rate", "Pay4Me"),
-  ];
+// 🔹 Generic ScrapingBee wrapper
+async function scrapeWithScrapingBee(url, selector, name) {
+  try {
+    const res = await axios.get("https://app.scrapingbee.com/api/v1", {
+      params: {
+        api_key: process.env.SCRAPINGBEE_KEY,
+        url,
+        render_js: "true",
+      },
+    });
 
+    const $ = cheerio.load(res.data);
+    const text = $(selector).first().text().replace(/,/g, "").trim();
+    const match = text.match(/\d+(\.\d+)?/);
+    const rate = match ? parseFloat(match[0]) : null;
+
+    return { name, rate, source: url };
+  } catch (err) {
+    console.error(`❌ ${name} scrape failed:`, err.message);
+    return null;
+  }
+}
+
+// 🔹 Vendor scrapers
+async function scrapeVendors() {
+  return [
+    // ✅ AbokiFX — parallel USD/NGN
+    await scrapeWithScrapingBee(
+      "https://abokifx.com",
+      "table tr:contains('USD') td:nth-child(2)",
+      "AbokiFX"
+    ),
+
+    // ✅ Skrill — exchange rate section
+    await scrapeWithScrapingBee(
+      "https://www.skrill.com/en/fees/",
+      "div.fees__exchange-rate span",
+      "Skrill"
+    ),
+
+    // ✅ Western Union NG — rate shown in calculator
+    await scrapeWithScrapingBee(
+      "https://www.westernunion.com/ng/en/home.html",
+      "span[data-qa='exchange-rate']",
+      "Western Union"
+    ),
+
+    // ✅ TransferGo — homepage calculator
+    await scrapeWithScrapingBee(
+      "https://transfergo.com/en",
+      ".exchange-rate",
+      "TransferGo"
+    ),
+
+    // ✅ Afriex — usually shows rate in hero section
+    await scrapeWithScrapingBee(
+      "https://www.afriexapp.com",
+      ".hero-section .rate", // ⚠️ adjust if layout changes
+      "Afriex"
+    ),
+
+    // ✅ Pay4Me — marketing page
+    await scrapeWithScrapingBee(
+      "https://pay4me.services",
+      ".exchange-rate", // ⚠️ adjust via DevTools if needed
+      "Pay4Me"
+    ),
+  ];
+}
+
+// 🔹 Main
+async function main() {
+  const vendors = await scrapeVendors();
   for (const v of vendors) {
     if (v) await saveRate(v);
   }
-
-  console.log("🎉 Scraping finished via ScrapingBee");
+  console.log("🎉 All vendors scraped & saved to Supabase");
 }
 
 main().catch(console.error);
