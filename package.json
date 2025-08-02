@@ -1,0 +1,12 @@
+{
+  "name": "fx-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node scraper.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "puppeteer-core": "^24.15.0"
+  }
+}
