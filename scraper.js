@@ -1,13 +1,35 @@
-import puppeteer from "puppeteer";
+import axios from "axios";
+import * as cheerio from "cheerio"; // for parsing HTML
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY // service key (not anon)
+  process.env.SUPABASE_SERVICE_KEY
 );
 
+async function scrapeWithScrapingBee(url, selector, name) {
+  try {
+    const res = await axios.get("https://app.scrapingbee.com/api/v1", {
+      params: {
+        api_key: process.env.SCRAPINGBEE_KEY,
+        url: url,
+        render_js: "true", // ensures JS-heavy sites are rendered
+      },
+    });
+
+    const $ = cheerio.load(res.data);
+    const text = $(selector).first().text().replace(/,/g, "").trim();
+    const rate = parseFloat(text.match(/\d+(\.\d+)?/)[0]);
+
+    return { name, rate, source: url };
+  } catch (err) {
+    console.error(`❌ Failed to scrape ${name}`, err.message);
+    return null;
+  }
+}
+
 async function saveRate(vendor) {
-  if (!vendor.rate) return;
+  if (!vendor?.rate) return;
   await supabase.from("fx_vendors").upsert({
     name: vendor.name,
     rate: vendor.rate,
@@ -17,88 +39,22 @@ async function saveRate(vendor) {
   console.log(`✅ Saved ${vendor.name}: ₦${vendor.rate}/$1`);
 }
 
-// 🔹 Vendor Scrapers
-
-async function scrapeAbokiFx(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://abokifx.com/", { waitUntil: "domcontentloaded" });
-  const usdRate = await page.$eval(
-    "table tr:has(td:contains('USD')) td:nth-child(2)",
-    (el) => el.textContent.replace(/,/g, "").trim()
-  );
-  return { name: "AbokiFX", rate: parseFloat(usdRate), source: "abokifx.com" };
-}
-
-async function scrapePayoneer(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://payoneer.com", { waitUntil: "domcontentloaded" });
-  // 🔴 NOTE: Replace selector with real Payoneer FX rate element
-  const rate = 1520;
-  return { name: "Payoneer", rate, source: "payoneer.com" };
-}
-
-async function scrapeSkrill(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://www.skrill.com/en/fees/", { waitUntil: "domcontentloaded" });
-  // 🔴 Replace with real selector for USD→NGN
-  const rate = 1522;
-  return { name: "Skrill", rate, source: "skrill.com" };
-}
-
-async function scrapeWesternUnion(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://www.westernunion.com/ng/en/home.html", {
-    waitUntil: "domcontentloaded",
-  });
-  // 🔴 Replace with real selector
-  const rate = 1523;
-  return { name: "Western Union", rate, source: "westernunion.com" };
-}
-
-async function scrapeTransferGo(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://transfergo.com", { waitUntil: "domcontentloaded" });
-  // 🔴 Replace with real selector
-  const rate = 1525;
-  return { name: "TransferGo", rate, source: "transfergo.com" };
-}
-
-async function scrapeAfriex(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://afriexapp.com", { waitUntil: "domcontentloaded" });
-  // 🔴 Replace with real selector
-  const rate = 1521;
-  return { name: "Afriex", rate, source: "afriexapp.com" };
-}
-
-async function scrapePay4Me(browser) {
-  const page = await browser.newPage();
-  await page.goto("https://pay4me.services", { waitUntil: "domcontentloaded" });
-  // 🔴 Replace with real selector
-  const rate = 1524;
-  return { name: "Pay4Me", rate, source: "pay4me.services" };
-}
-
-// 🔹 Main
 async function main() {
-  const browser = await puppeteer.launch({ headless: "new" });
-
   const vendors = [
-    await scrapeAbokiFx(browser),
-    await scrapePayoneer(browser),
-    await scrapeSkrill(browser),
-    await scrapeWesternUnion(browser),
-    await scrapeTransferGo(browser),
-    await scrapeAfriex(browser),
-    await scrapePay4Me(browser),
+    await scrapeWithScrapingBee("https://abokifx.com", "table tr:contains('USD') td:nth-child(2)", "AbokiFX"),
+    await scrapeWithScrapingBee("https://www.payoneer.com", ".exchange-rate-selector", "Payoneer"),
+    await scrapeWithScrapingBee("https://www.skrill.com/en/fees/", ".fees-exchange-rate", "Skrill"),
+    await scrapeWithScrapingBee("https://www.westernunion.com/ng/en/home.html", ".exchange-rate", "Western Union"),
+    await scrapeWithScrapingBee("https://transfergo.com", ".exchange-rate", "TransferGo"),
+    await scrapeWithScrapingBee("https://afriexapp.com", ".exchange-rate", "Afriex"),
+    await scrapeWithScrapingBee("https://pay4me.services", ".exchange-rate", "Pay4Me"),
   ];
 
   for (const v of vendors) {
-    await saveRate(v);
+    if (v) await saveRate(v);
   }
 
-  await browser.close();
-  console.log("🎉 Scraping finished");
+  console.log("🎉 Scraping finished via ScrapingBee");
 }
 
-main().catch((err) => console.error("❌ Scraper failed:", err));
+main().catch(console.error);
