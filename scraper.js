@@ -4,6 +4,13 @@ import axios from "axios";
 import * as cheerio from "cheerio"; // for parsing HTML
 import { createClient } from "@supabase/supabase-js";
 
+console.log("🧪 ENV DEBUG:", {
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  SCRAPINGBEE_KEY: process.env.SCRAPINGBEE_KEY,
+});
+
+
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   console.error("❌ Missing Supabase credentials");
   process.exit(1);
