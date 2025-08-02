@@ -1,11 +1,17 @@
+//scraper.js
 import axios from "axios";
 import * as cheerio from "cheerio"; // for parsing HTML
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_ANON_KEY
 );
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.error("❌ Missing Supabase credentials");
+  process.exit(1);
+}
 
 async function scrapeWithScrapingBee(url, selector, name) {
   try {
